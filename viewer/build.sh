@@ -19,4 +19,16 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
-codesign --force --sign - "$app"
+sign_identity="${KVMUSE_SIGN_IDENTITY:-}"
+if [[ -z "$sign_identity" ]]; then
+    sign_identity=$(security find-identity -v -p codesigning | awk '/"Apple Development:/ && !found { print $2; found=1 }')
+fi
+if [[ -z "$sign_identity" || "$sign_identity" == "-" ]]; then
+    sign_identity='-'
+    echo 'Warning: ad-hoc signing; Camera permission will be requested again after each build.' >&2
+elif [[ ! "$sign_identity" =~ ^[[:xdigit:]]{40}$ ]]; then
+    echo 'KVMUSE_SIGN_IDENTITY must be a signing identity SHA-1 hash (40 hex digits), or - for ad-hoc signing.' >&2
+    exit 1
+fi
+codesign --force --sign "$sign_identity" "$app"
+codesign --verify --strict "$app"

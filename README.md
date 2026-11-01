@@ -192,3 +192,5 @@ CH9329 command-plus-payload byte arrays. The Python client encodes named keys,
 US-layout text, and mouse operations before sending a complete batch. The Viewer
 validates report lengths and ranges and executes each batch without interleaving
 manual reports. No serial device is opened by the Python bridge client.
+
+Viewer builds select the first Apple Development signing identity by SHA-1; set `KVMUSE_SIGN_IDENTITY` to another identity SHA-1 hash to override it (ad-hoc fallback repeats the Camera prompt).
