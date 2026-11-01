@@ -109,3 +109,27 @@ uv run python -m kvmuse.smoke --mouse-demo --screenshot /tmp/kvmuse-e2e/mouse.pn
 Watch the pointer during the sequence. It moves right, down, left, then up, with no clicks.
 The relative offsets sum to zero. Screen edges and pointer acceleration can prevent an exact return to the starting pixel.
 The final screenshot records the screen after movement. It does not prove the path, and HDMI capture can omit the cursor.
+
+## Unlock and keep awake (manual use only)
+
+Close the Viewer before these commands: they need sole access to the serial port.
+Only a person may run these commands. Agents must never run them with a password.
+Never put a password in arguments, chat, logs, or scripts. Both commands use a
+hidden terminal prompt and reject unsupported US-layout characters before input.
+
+Run `uv run python -m kvmuse.unlock` with the target login password field selected.
+It wakes with Shift, clears the field, types the password, and presses Enter.
+Check the target screen yourself. This command cannot confirm login success.
+
+Run `uv run python -m kvmuse.keep_awake --dry-run` to print the steps without
+opening the serial port or asking for a password. On an unlocked macOS target,
+run `uv run python -m kvmuse.keep_awake` to open Terminal and change power and
+screen-saver settings. Use an administrator password. Both accept `--port PATH`.
+The command uses fixed delays and cannot inspect prompts. Watch the target:
+if Terminal or sudo does not open as expected, interrupt the command. A missing
+sudo prompt can expose typed password text in the target shell. Verify the final
+settings output; sending input does not prove that a command succeeded.
+
+These settings reduce physical-access protection. Keep the target in a secure
+place. They do not disable the login password, managed lock policies, or FileVault.
+After a restart, FileVault can require a person to unlock the startup disk.
