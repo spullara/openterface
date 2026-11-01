@@ -98,3 +98,14 @@ def capture_frame(max_width=None):
         raise CaptureError(f'Capture failed. Check Camera access and HDMI signal. {detail}')
     image_resolution(result.stdout)
     return result.stdout
+
+
+def is_black_frame(data: bytes) -> bool:
+    """Return true when at least 99 percent of sampled pixels are dark."""
+    from io import BytesIO
+    from PIL import Image
+    with Image.open(BytesIO(data)) as image:
+        image = image.convert('RGB')
+        image.thumbnail((64, 36))
+        pixels = list(image.get_flattened_data())
+        return bool(pixels) and sum(max(pixel) <= 24 for pixel in pixels) / len(pixels) >= .99

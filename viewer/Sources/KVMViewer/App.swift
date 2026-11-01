@@ -34,6 +34,8 @@ final class VideoView: NSView {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let camera = Camera()
     let serial = SerialWriter()
+    var bridge: Bridge?
+    var agentTyping = false
     var window: NSWindow!
     var video: VideoView!
     var badge = NSTextField(labelWithString: "Control OFF — click the video to take control")
@@ -97,11 +99,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self?.key(event)
         }
         window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+        let bridge = Bridge(serial: serial, frames: camera.frames)
+        self.bridge = bridge
+        bridge.activity = { [weak self] active in Task { @MainActor in self?.agentTyping = active; self?.refresh() } }
+        do { try bridge.start() } catch { serialStatus = "Bridge failed: \(error.localizedDescription)" }
         connect()
         camera.start { [weak self] state in Task { @MainActor in self?.videoStatus = state; self?.refresh() } }
     }
     func refresh() {
-        badge.stringValue = (control ? "Control ON — Release button or F13 twice" : "Control OFF — click the video to take control") + "\n\(videoStatus) · \(serialStatus)"
+        badge.stringValue = (agentTyping ? "Agent typing · " : "") + (control ? "Control ON — Release button or F13 twice" : "Control OFF — click the video to take control") + "\n\(videoStatus) · \(serialStatus)"
         controlButton.title = control ? "Release control" : "Take control"
         statusItem.button?.title = "KVM \(videoStatus == "Video connected" ? "V✓" : "V!") \(serialStatus == "Serial connected" ? "S✓" : "S!")"
     }

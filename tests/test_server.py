@@ -12,6 +12,7 @@ def test_stdio_status_without_hardware():
     # Patch only the hardware boundaries in the child, retaining real MCP transport.
     code = '''
 from kvmuse import server
+server.Bridge.discover = lambda: None
 server.list_devices = lambda: []
 def unavailable():
     raise server.capture.CaptureError("Camera access is not authorized")
@@ -25,7 +26,7 @@ server.main()
                 tools = await client.list_tools()
                 assert {t.name for t in tools.tools} == {
                     'screenshot', 'type_text', 'press_key', 'mouse_move',
-                    'mouse_click', 'mouse_scroll', 'kvm_status'}
+                    'mouse_click', 'mouse_scroll', 'kvm_status', 'wake_display'}
                 result = await client.call_tool('kvm_status', {})
                 assert not result.isError
                 status = json.loads(result.content[0].text)
@@ -42,6 +43,7 @@ server.main()
 
 
 def test_gestures(monkeypatch):
+    monkeypatch.setattr(server.Bridge, "discover", lambda: None)
     calls = []
     class Device:
         def __enter__(self): return self

@@ -45,7 +45,11 @@ public final class SerialWriter: @unchecked Sendable {
         completion("Serial error. Reconnect the device.")
     }
     public func send(_ command: UInt8, payload: [UInt8], completion: @escaping @Sendable (String?) -> Void = { _ in }) {
+        sendBatch([(command, payload)], completion: completion)
+    }
+    public func sendBatch(_ reports: [(UInt8, [UInt8])], completion: @escaping @Sendable (String?) -> Void) {
         queue.async { [self] in
+            for (command, payload) in reports {
             guard fd >= 0 else { completion("Serial is not connected."); return }
             tcflush(fd, TCIFLUSH)
             let packet = HID.packet(command, payload)
@@ -63,7 +67,10 @@ public final class SerialWriter: @unchecked Sendable {
             }
             if response != HID.packet(command | 0x80, [0]) {
                 fail { completion($0) }
-            } else { completion(nil) }
+                return
+            }
+            }
+            completion(nil)
         }
     }
 }

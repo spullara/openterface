@@ -168,3 +168,27 @@ Remote Desktop must pass F13 through for that shortcut; the buttons need no shor
 **Wake target** sends Shift press/release and a one-unit relative mouse move out
 and back. A nearly black video for two seconds shows a possible-sleep hint.
 A black image can also mean that the target has no video output.
+
+### Agent bridge
+
+While KVM Viewer runs, the MCP tools use its camera and serial connection.
+The Viewer listens only on `127.0.0.1`, on a random port. Discovery data and a
+random bearer token are stored in `~/.kvmuse/bridge.json` with mode `0600`.
+All endpoints require this token. Do not share the file.
+
+`kvm_status` reports `path: bridge` or `path: direct`. Direct access is used only
+when discovery is missing or the status endpoint does not answer. A failed
+bridge operation returns an MCP error; it is never repeated through direct access.
+Agent input works with Viewer control OFF and uses the same serial queue as
+manual input. The Viewer shows “Agent typing” during agent input.
+
+`screenshot` returns the latest PNG and adds a sleep hint for a nearly black
+frame. `wake_display` sends Shift down/up and a one-pixel mouse wiggle. Wait
+briefly after waking, then capture again. A black frame can also mean no HDMI signal.
+
+Bridge API: `GET /status`, `GET /frame?max_width=1280`, `POST /wake`, and
+`POST /keys`, `/text`, `/mouse`. Input bodies contain `reports`, an array of
+CH9329 command-plus-payload byte arrays. The Python client encodes named keys,
+US-layout text, and mouse operations before sending a complete batch. The Viewer
+validates report lengths and ranges and executes each batch without interleaving
+manual reports. No serial device is opened by the Python bridge client.
