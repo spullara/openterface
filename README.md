@@ -159,3 +159,12 @@ Stop direct serial clients before starting the viewer.
 
 The app uses one serial queue and a shared latest-frame buffer. The agent bridge
 is a separate task. Sam must check video, input, and the escape hotkey on hardware.
+
+Viewer control through Remote Desktop: click the video or **Take control** to
+start. The first video click is not sent to the target. Use **Release control**
+to stop. Two F13 presses within 0.4 seconds also release control; F13 is reserved
+while control is on. The original hotkey and release on focus loss still work.
+Remote Desktop must pass F13 through for that shortcut; the buttons need no shortcut.
+**Wake target** sends Shift press/release and a one-unit relative mouse move out
+and back. A nearly black video for two seconds shows a possible-sleep hint.
+A black image can also mean that the target has no video output.

@@ -13,6 +13,8 @@ final class Camera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unc
     let session = AVCaptureSession()
     let frames = LatestFrameBuffer()
     private let queue = DispatchQueue(label: "kvm.camera")
+    private var blackHint = BlackFrameHint()
+    var onBlackHint: (@Sendable (Bool) -> Void)?
     func start(status: @escaping @Sendable (String) -> Void) {
         AVCaptureDevice.requestAccess(for: .video) { [self] allowed in
             guard allowed else { status("Camera denied. Enable KVM Viewer in System Settings > Privacy & Security > Camera."); return }
@@ -26,6 +28,7 @@ final class Camera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unc
                     session.addInput(input)
                     let output = AVCaptureVideoDataOutput()
                     output.alwaysDiscardsLateVideoFrames = true
+                    output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
                     output.setSampleBufferDelegate(self, queue: queue)
                     guard session.canAddOutput(output) else { session.commitConfiguration(); status("Cannot read camera frames."); return }
                     session.addOutput(output)
@@ -54,6 +57,21 @@ final class Camera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unc
         }
     }
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        if let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) { frames.store(buffer) }
+        guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        frames.store(buffer)
+        CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return }
+        let bytes = base.assumingMemoryBound(to: UInt8.self)
+        let width = CVPixelBufferGetWidth(buffer), height = CVPixelBufferGetHeight(buffer)
+        let strideBytes = CVPixelBufferGetBytesPerRow(buffer)
+        var samples: [UInt8] = []
+        for y in stride(from: 0, to: height, by: max(1, height/36)) {
+            for x in stride(from: 0, to: width, by: max(1, width/64)) {
+                let offset = y * strideBytes + x * 4
+                samples.append(max(bytes[offset], bytes[offset+1], bytes[offset+2]))
+            }
+        }
+        onBlackHint?(blackHint.update(samples: samples, at: ProcessInfo.processInfo.systemUptime))
     }
 }
