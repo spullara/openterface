@@ -111,12 +111,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let width = min(size.width, size.height * 16 / 9)
         let height = width * 9 / 16
         let rect = NSRect(x: (size.width-width)/2, y: (size.height-height)/2, width: width, height: height)
-        guard rect.contains(p), rect.width > 0 else { return }
-        if event.type == .leftMouseDown { buttons |= 1 }
-        if event.type == .leftMouseUp { buttons &= ~1 }
-        if event.type == .rightMouseDown { buttons |= 2 }
-        if event.type == .rightMouseUp { buttons &= ~2 }
-        send(4, HID.mouse(x: (p.x-rect.minX)/rect.width, y: 1-(p.y-rect.minY)/rect.height, buttons: buttons, wheel: event.type == .scrollWheel ? Int(event.scrollingDeltaY.rounded()) : 0))
+        guard rect.width > 0, rect.height > 0 else { return }
+        let pressed: UInt8 = event.type == .leftMouseDown ? 1 : event.type == .rightMouseDown ? 2 : 0
+        let released: UInt8 = event.type == .leftMouseUp ? 1 : event.type == .rightMouseUp ? 2 : 0
+        if let payload = HID.pointerReport(x: (p.x-rect.minX)/rect.width,
+                                           y: 1-(p.y-rect.minY)/rect.height,
+                                           buttons: &buttons, pressed: pressed, released: released,
+                                           wheel: event.type == .scrollWheel ? Int(event.scrollingDeltaY.rounded()) : 0) {
+            send(4, payload)
+        }
     }
 }
 @main struct Main {

@@ -6,6 +6,19 @@ final class HIDTests: XCTestCase {
         XCTAssertEqual(HID.packet(2, Array(repeating: 0, count: 8)).last, 12)
         XCTAssertEqual(HID.mouse(x: 1, y: 0, buttons: 2, wheel: -1), [2,2,255,15,0,0,255])
     }
+    func testReleaseOutsideVideo() {
+        for button: UInt8 in [1, 2] {
+            var buttons: UInt8 = 0
+            XCTAssertNotNil(HID.pointerReport(x: 0.5, y: 0.5, buttons: &buttons, pressed: button))
+            XCTAssertEqual(buttons, button)
+            XCTAssertNil(HID.pointerReport(x: 1.2, y: -0.2, buttons: &buttons))
+            let release = HID.pointerReport(x: 1.2, y: -0.2, buttons: &buttons, released: button)
+            XCTAssertEqual(release, [2, 0, 255, 15, 0, 0, 0])
+            XCTAssertEqual(buttons, 0)
+            XCTAssertNil(HID.pointerReport(x: -0.1, y: 0.5, buttons: &buttons, pressed: button))
+            XCTAssertEqual(buttons, 0)
+        }
+    }
     func testKeys() {
         for (code, usage): (UInt16, UInt8) in [(0,4),(36,40),(53,41),(48,43),(51,42),(123,80),(124,79),(125,81),(126,82),(122,58),(111,69)] { XCTAssertEqual(HID.usages[code], usage) }
         XCTAssertEqual(Set(HID.usages.values.filter { (4...29).contains($0) }).count, 26)
