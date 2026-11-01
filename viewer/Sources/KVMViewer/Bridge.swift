@@ -40,15 +40,14 @@ final class Bridge: @unchecked Sendable {
     func receive(_ connection: NWConnection, data: Data) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [self] chunk, _, done, error in
             var data = data; data.append(chunk ?? Data())
-            guard data.count <= 524288 else { reply(connection, code: 413, text: "Request too large"); return }
-            if let end = data.range(of: Data("\r\n\r\n".utf8)),
-               let head = String(data: data[..<end.lowerBound], encoding: .utf8) {
-                let lengths = head.components(separatedBy: "\r\n").filter { $0.lowercased().hasPrefix("content-length:") }
-                let length = lengths.first.flatMap { Int($0.split(separator: ":", maxSplits: 1)[1].trimmingCharacters(in: .whitespaces)) } ?? 0
-                if data.count >= end.upperBound + length {
-                    guard let request = BridgeRequest(data, token: token) else { reply(connection, code: 400, text: "Invalid request or bridge token"); return }
-                    handle(connection, request); return
-                }
+            switch BridgeRequest.framing(data) {
+            case .invalid:
+                reply(connection, code: 400, text: "Invalid or oversized HTTP request"); return
+            case .complete:
+                guard let request = BridgeRequest(data, token: token) else { reply(connection, code: 400, text: "Invalid request or bridge token"); return }
+                handle(connection, request); return
+            case .incomplete:
+                break
             }
             if done || error != nil { connection.cancel() } else { receive(connection, data: data) }
         }
