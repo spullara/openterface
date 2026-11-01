@@ -1,5 +1,6 @@
 @preconcurrency import AVFoundation
 import AppKit
+import ViewerCore
 
 // The buffer owns only the newest immutable frame. Bridge readers can take a snapshot.
 final class LatestFrameBuffer: @unchecked Sendable {
@@ -28,17 +29,22 @@ final class Camera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unc
                     output.setSampleBufferDelegate(self, queue: queue)
                     guard session.canAddOutput(output) else { session.commitConfiguration(); status("Cannot read camera frames."); return }
                     session.addOutput(output)
-                    let format = [1920, 1280].compactMap { width in
-                        device.formats.first { f in
-                            let d = CMVideoFormatDescriptionGetDimensions(f.formatDescription)
-                            return d.width == width && d.height == (width == 1920 ? 1080 : 720) && f.videoSupportedFrameRateRanges.contains { $0.minFrameRate <= 30 && $0.maxFrameRate >= 30 }
-                        }
-                    }.first
-                    guard let format else { session.commitConfiguration(); status("Camera has no supported 1080p or 720p mode at 30 fps."); return }
+                    let formats = device.formats
+                    let values = formats.map { format in
+                        let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+                        return VideoFormat(width: dimensions.width, height: dimensions.height,
+                                           subtype: CMFormatDescriptionGetMediaSubType(format.formatDescription),
+                                           ranges: format.videoSupportedFrameRateRanges.map {
+                                               .init(min: $0.minFrameRate, max: $0.maxFrameRate)
+                                           })
+                    }
+                    guard let selection = VideoFormat.select(values) else { session.commitConfiguration(); status("Camera has no supported 1080p or 720p mode at 30 fps."); return }
+                    let format = formats[selection.format]
+                    let range = format.videoSupportedFrameRateRanges[selection.range]
                     try device.lockForConfiguration()
                     device.activeFormat = format
-                    device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: 30)
-                    device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: 30)
+                    device.activeVideoMinFrameDuration = range.minFrameDuration
+                    device.activeVideoMaxFrameDuration = range.maxFrameDuration
                     device.unlockForConfiguration()
                     session.commitConfiguration()
                     session.startRunning()
