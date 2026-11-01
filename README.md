@@ -133,3 +133,29 @@ settings output; sending input does not prove that a command succeeded.
 These settings reduce physical-access protection. Keep the target in a secure
 place. They do not disable the login password, managed lock policies, or FileVault.
 After a restart, FileVault can require a person to unlock the startup disk.
+
+## KVM Viewer (macOS 14 or later)
+
+Build the native viewer with Swift 6 and Xcode:
+
+```sh
+cd viewer
+swift test
+./build.sh
+cd ..
+open "viewer/build/KVM Viewer.app"
+```
+
+Allow Camera access at first launch. If access is denied, enable KVM Viewer in
+System Settings > Privacy & Security > Camera, then restart the app.
+The viewer selects the Openterface camera at 1080p30, with a 720p30 fallback.
+
+Control starts OFF. With the viewer focused, press **Ctrl+Option+Cmd+K** to toggle
+control. The badge shows the mode. When control is ON, keyboard input, pointer
+movement, left/right clicks, dragging, and scrolling go to the target.
+The same hotkey releases control. Leaving the window also releases held input.
+Use the KVM menu-bar item to toggle always-on-top mode or reconnect serial.
+Stop direct serial clients before starting the viewer.
+
+The app uses one serial queue and a shared latest-frame buffer. The agent bridge
+is a separate task. Sam must check video, input, and the escape hotkey on hardware.
