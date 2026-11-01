@@ -86,3 +86,26 @@ area or a test field before a mouse click. Do not click an unknown screen.
 - **Capture error or blank image:** Make sure that the target HDMI output is active and the capture device is connected.
   The capture device name is `Openterface`. The capture module supplies explicit format, frame rate, and size settings.
 - **Incorrect text:** Select a US keyboard layout on the target. Text entry does not use the clipboard.
+
+## Loopback / multi-monitor setups
+
+In a loopback setup, the host and target are the same Mac. KVM input affects that live Mac.
+Capture shows only the monitor that the KVM HDMI connection drives.
+Spotlight and other UI can open on the main display, outside the capture.
+
+Place a TextEdit document on the KVM monitor. Give TextEdit focus before typing, for example with `open -a TextEdit`.
+Allow time for focus to change. Text goes to the focused app, even when that app is on another monitor.
+TextEdit can automatically capitalize the first letter.
+Camera permission is per app. Terminal permission does not grant access to the agent host app.
+
+For a mouse check, place the pointer near the center of the KVM monitor.
+Run this command in the Terminal that has Camera permission:
+
+```sh
+mkdir -p /tmp/kvmuse-e2e
+uv run python -m kvmuse.smoke --mouse-demo --screenshot /tmp/kvmuse-e2e/mouse.png
+```
+
+Watch the pointer during the sequence. It moves right, down, left, then up, with no clicks.
+The relative offsets sum to zero. Screen edges and pointer acceleration can prevent an exact return to the starting pixel.
+The final screenshot records the screen after movement. It does not prove the path, and HDMI capture can omit the cursor.

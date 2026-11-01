@@ -64,3 +64,15 @@ def test_bad_checksum(device):
     device.serial.read = lambda n: b"\x57\xab\x00\x82\x01" if n == 5 else b"\0\0"
     with pytest.raises(IOError, match="checksum"):
         device.key_release_all()
+
+
+def test_mouse_demo_packet_sequence(device, monkeypatch):
+    from kvmuse import smoke
+    monkeypatch.setattr(smoke.time, 'sleep', lambda seconds: None)
+    smoke.mouse_demo(device)
+    assert device.serial.packets == [
+        build_packet(5, bytes([1, 0, 40, 0, 0])),
+        build_packet(5, bytes([1, 0, 0, 40, 0])),
+        build_packet(5, bytes([1, 0, 216, 0, 0])),
+        build_packet(5, bytes([1, 0, 0, 216, 0])),
+    ]
