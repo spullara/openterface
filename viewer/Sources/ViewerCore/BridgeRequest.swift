@@ -6,7 +6,16 @@ public enum BridgeFraming: Equatable {
 
 public struct BridgeRequest {
     public static let maxHeaderBytes = 8192
-    public static let maxBodyBytes = 65536
+    // 4096 presses (shift is part of each report), 4096 releases, final release.
+    public static let maxKeyboardReports = 4096 * 2 + 1
+    // Base64 of eight-byte reports plus a bounded JSON envelope.
+    public static let maxBodyBytes = ((maxKeyboardReports * 8 + 2) / 3) * 4 + 128
+    public static func keyboardReports(_ body: Data) -> [[UInt8]]? {
+        guard let object = try? JSONSerialization.jsonObject(with: body) as? [String: String],
+              let encoded = object["keyboard_base64"], let bytes = Data(base64Encoded: encoded),
+              bytes.count % 8 == 0, bytes.count <= maxKeyboardReports * 8 else { return nil }
+        return stride(from: 0, to: bytes.count, by: 8).map { Array(bytes[$0..<$0+8]) }
+    }
     public let method: String
     public let target: String
     public let body: Data

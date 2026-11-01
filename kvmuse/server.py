@@ -1,5 +1,6 @@
 """MCP tools for an Openterface KVM, served over stdio."""
 import threading
+import base64
 from typing import Annotated, Literal
 
 from mcp.server.fastmcp import FastMCP, Image
@@ -19,7 +20,10 @@ def _control(operation, endpoint="/keys"):
     if bridge is not None:
         device = Reports()
         operation(device)
-        return bridge.request(endpoint, {"reports": device.reports}).decode()
+        payload = {"reports": device.reports}
+        if endpoint == "/text":
+            payload = {"keyboard_base64": base64.b64encode(bytes(byte for report in device.reports for byte in report[1:])).decode('ascii')}
+        return bridge.request(endpoint, payload).decode()
     # Serialize complete gestures, including their release reports.
     with _control_lock, CH9329() as device:
         operation(device)

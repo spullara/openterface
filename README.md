@@ -18,7 +18,7 @@ The server selects one Openterface serial device automatically at 115200 baud.
 Disconnect extra matching devices if selection fails.
 
 Tools: screenshot, type_text, press_key, mouse_move, mouse_click, mouse_scroll,
-and kvm_status. Screenshots return PNG image content. Status reports device
+kvm_status, and wake_display. Screenshots return PNG image content. Status reports device
 presence and capture errors; it does not send input or verify the HDMI signal.
 Mouse coordinates are fractions from 0 to 1. Scroll accepts -127 to 127 steps.
 Text requires a US target keyboard layout and supports up to 4096 characters.
@@ -47,6 +47,7 @@ Replace the repository path if you move this checkout. Restart the connection af
 | `mouse_move` | `x`, `y` from 0 to 1 | Moves the pointer to screen fractions |
 | `mouse_click` | `button`: left/right/middle, `double`: boolean | Clicks at the current pointer position |
 | `mouse_scroll` | `amount` from -127 to 127 | Sends wheel steps, positive upward |
+| `wake_display` | None | Sends Shift and a one-pixel mouse wiggle |
 | `kvm_status` | None | Reports serial presence and capture discovery |
 
 ## Hardware smoke sequence
@@ -157,8 +158,7 @@ The same hotkey releases control. Leaving the window also releases held input.
 Use the KVM menu-bar item to toggle always-on-top mode or reconnect serial.
 Stop direct serial clients before starting the viewer.
 
-The app uses one serial queue and a shared latest-frame buffer. The agent bridge
-is a separate task. Sam must check video, input, and the escape hotkey on hardware.
+The app uses one serial queue and a shared latest-frame buffer. The agent bridge is included. Sam must check video, input, and the escape hotkey on hardware.
 
 Viewer control through Remote Desktop: click the video or **Take control** to
 start. The first video click is not sent to the target. Use **Release control**
@@ -187,10 +187,12 @@ frame. `wake_display` sends Shift down/up and a one-pixel mouse wiggle. Wait
 briefly after waking, then capture again. A black frame can also mean no HDMI signal.
 
 Bridge API: `GET /status`, `GET /frame?max_width=1280`, `POST /wake`, and
-`POST /keys`, `/text`, `/mouse`. Input bodies contain `reports`, an array of
+`POST /keys`, `/text`, `/mouse`. The `/keys` and `/mouse` bodies contain `reports`, an array of
 CH9329 command-plus-payload byte arrays. The Python client encodes named keys,
 US-layout text, and mouse operations before sending a complete batch. The Viewer
 validates report lengths and ranges and executes each batch without interleaving
 manual reports. No serial device is opened by the Python bridge client.
 
 Viewer builds select the first Apple Development signing identity by SHA-1; set `KVMUSE_SIGN_IDENTITY` to another identity SHA-1 hash to override it (ad-hoc fallback repeats the Camera prompt).
+
+The `/text` body uses `keyboard_base64`: base64 of eight-byte keyboard reports. The body limit is derived from 8193 reports (4096 presses, 4096 releases, one final release), base64 expansion, and 128 bytes of JSON overhead. Shift is included in each press report.

@@ -78,6 +78,9 @@ final class Bridge: @unchecked Sendable {
         var reports: [(UInt8, [UInt8])] = []
         if url?.path == "/wake" {
             reports = [(2,HID.keyboard([], modifiers: 2)), (2,HID.keyboard([], modifiers: 0)), (5,[1,0,1,0,0]), (5,[1,0,255,0,0])]
+        } else if url?.path == "/text" {
+            guard let keyboard = BridgeRequest.keyboardReports(request.body) else { reply(connection, code: 400, text: "Invalid keyboard payload"); return }
+            reports = keyboard.map { (2, $0) }
         } else {
             guard let object = try? JSONSerialization.jsonObject(with: request.body) as? [String: Any],
                   let values = object["reports"] as? [[Int]], values.count <= 8194 else { reply(connection, code: 400, text: "Expected HID reports"); return }

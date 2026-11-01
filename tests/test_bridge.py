@@ -1,4 +1,6 @@
 import json
+import base64
+import asyncio
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO
@@ -39,7 +41,7 @@ def test_discovery_token_and_no_midrequest_fallback(endpoint, monkeypatch):
     with pytest.raises(BridgeError, match='Serial unavailable'):
         server.type_text('a')
     assert calls[-1][0:2] == ('/text', 'Bearer secret')
-    assert calls[-1][2]['reports'][0] == [2, 0, 0, 4, 0, 0, 0, 0, 0]
+    assert base64.b64decode(calls[-1][2]['keyboard_base64'])[:8] == bytes([0, 0, 4, 0, 0, 0, 0, 0])
     with pytest.raises(BridgeError, match='Camera unavailable'):
         server.screenshot()
 
@@ -66,3 +68,24 @@ def test_black_frame_and_hint(monkeypatch):
     monkeypatch.setattr(Bridge, 'discover', lambda: None)
     monkeypatch.setattr(capture, 'capture_frame', lambda: png('black'))
     assert 'wake_display' in server.screenshot()[1]
+
+
+def test_text_boundary(monkeypatch):
+    calls = []
+    class FakeBridge:
+        def request(self, path, payload):
+            calls.append((path, payload))
+            return b'ok'
+    monkeypatch.setattr(Bridge, 'discover', lambda: FakeBridge())
+    async def run():
+        await server.mcp.call_tool('type_text', {'text': 'A' * 4096})
+        assert len(calls) == 1
+        payload = calls[0][1]
+        raw = base64.b64decode(payload['keyboard_base64'])
+        assert len(raw) == 8193 * 8
+        assert raw[:8] == bytes([2, 0, 4, 0, 0, 0, 0, 0])
+        assert len(json.dumps(payload).encode()) <= ((8193 * 8 + 2) // 3) * 4 + 128
+        with pytest.raises(Exception, match='4096'):
+            await server.mcp.call_tool('type_text', {'text': 'A' * 4097})
+        assert len(calls) == 1
+    asyncio.run(run())
