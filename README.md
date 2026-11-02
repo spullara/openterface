@@ -1,9 +1,109 @@
 # kvmuse
 
-Control an Openterface Mini-KVM through MCP over stdio. The host requires macOS,
-Python 3.11+, uv, ffmpeg, and Apple command line tools (swift).
+Control an Openterface Mini-KVM through MCP over stdio on macOS or Windows 10/11.
+The host requires Python 3.11+, uv, and FFmpeg. Python 3.13 is recommended for the
+Windows Viewer. macOS direct capture also requires Apple command line tools (Swift).
+The host OS is independent of the target: a Windows host can control a Mac or PC.
 
-## Setup
+## Windows setup (PowerShell)
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and a
+[Windows FFmpeg build](https://ffmpeg.org/download.html#build-windows) with DirectShow
+support. Put both executables on PATH, open a new PowerShell window, and check:
+
+```powershell
+uv --version
+ffmpeg -hide_banner -devices
+```
+
+The FFmpeg device list must contain `dshow`. From this repository, install either
+the MCP server alone or the server plus desktop Viewer:
+
+```powershell
+# MCP server only (no Qt required)
+uv sync --python 3.13
+
+# Server and desktop Viewer
+uv sync --python 3.13 --extra viewer
+uv run --extra viewer kvmuse-viewer
+```
+
+Connect the Openterface host USB cable and the target HDMI cable. The Viewer
+selects one matching camera and serial device automatically. It tries 1080p30,
+then 720p30. Close other camera/KVM apps before starting. To select a serial port:
+
+```powershell
+uv run python -m kvmuse.smoke --list
+uv run --extra viewer kvmuse-viewer --port COM3
+```
+
+Use the port reported on your machine. If no port appears, check Device Manager
+under Ports (COM & LPT), reconnect USB, and install the device manufacturer's
+serial driver if Windows reports a missing driver. Serial communication uses 115200 baud.
+
+If capture fails, open Windows Settings > Privacy & security > Camera (Windows 11)
+or Settings > Privacy > Camera (Windows 10). Enable camera access and access for
+desktop apps. Close other programs using the device. Discovery can find a camera
+even when Windows blocks opening it; `screenshot` or Viewer video confirms capture.
+
+For the MCP connection, use these fields in Intent or another stdio MCP client:
+
+- Command: the full executable path from `(Get-Command uv).Source`.
+- Arguments: `run`, `--directory`, `C:\path\to\kvmuse`, `kvmuse-mcp`.
+
+Each argument is a separate field, including a repository path containing spaces.
+Use `uv run kvmuse-mcp` to run the server directly. Its stdout is the MCP transport.
+
+### Windows Viewer controls
+
+Control starts OFF. Click **Take control** or click the video; the first click is
+consumed. With the Viewer focused and control ON, physical keys, modifiers,
+pointer movement, left/right/middle clicks, dragging, and scrolling go to the
+target. Text tools still require a US target keyboard layout.
+
+- **Release control**, **Ctrl+Alt+K**, or two **F13** presses within 0.4 seconds
+  release input. Ctrl+Alt+K also takes control when it is OFF.
+- Leaving the window, reconnecting, input failures, and closing release held keys
+  and mouse buttons. Release cancels queued input batches; a batch already being
+  sent finishes or fails before the release reports run.
+- **Wake target** sends Shift and a small relative mouse movement out and back.
+- **Always on top** keeps the window above other windows. **Reconnect** retries
+  both video and serial after a device or access problem.
+- **Agent typing** indicates MCP input. Sustained black frames show a possible
+  sleep hint; black video can also mean no HDMI signal.
+
+Windows reserves some shortcuts, including Ctrl+Alt+Delete and often Win shortcuts;
+the Viewer cannot capture these reliably. Send `press_key("ctrl-alt-del")` through
+MCP when needed. Remote Desktop must pass F13 through for the double-tap shortcut;
+the Release control button works without it. Only keys delivered to the focused
+Viewer can be forwarded; this app does not install a system-wide keyboard hook.
+
+The Viewer shares video and serial with MCP using the authenticated loopback
+bridge described below. Run only one Viewer at a time. Other direct serial clients
+must be closed. Camera work runs off the UI thread, with one latest frame and a
+stall timeout; serial input uses one worker with bounded queues and ACK timeouts.
+An input batch that exceeds its time budget fails and releases input; do not retry
+an operation blindly after an error because some input may already have arrived.
+
+Preview without opening serial or sending input at startup:
+
+```powershell
+uv run --extra viewer kvmuse-viewer --no-connect
+```
+
+The Reconnect button can subsequently open serial. To run automated tests:
+
+```powershell
+uv run --extra viewer pytest
+```
+
+Before relying on control, use a visible, disposable text field on the target.
+Check typing, modifiers, dragging, scrolling, focus-loss release, both release
+shortcuts, disconnect/reconnect, and an MCP screenshot while the Viewer runs.
+Automated tests use fake serial devices and do not prove visible target input.
+There is no bundled Windows installer; launch through uv as shown above.
+
+## macOS setup
 
 Connect the serial and HDMI capture devices, then install dependencies:
 
@@ -52,7 +152,8 @@ Replace the repository path if you move this checkout. Restart the connection af
 
 ## Hardware smoke sequence
 
-The target must be an unlocked Mac with Command-Space assigned to Spotlight.
+This sequence requires an unlocked macOS target with Command-Space assigned to Spotlight,
+even when the host runs Windows. It is not a Windows-target test.
 The sequence opens Spotlight, types `kvmuse test`, and sends Escape in cleanup.
 It never sends Enter. Do not use this sequence while someone operates the target.
 
@@ -173,7 +274,10 @@ A black image can also mean that the target has no video output.
 
 While KVM Viewer runs, the MCP tools use its camera and serial connection.
 The Viewer listens only on `127.0.0.1`, on a random port. Discovery data and a
-random bearer token are stored in `~/.kvmuse/bridge.json` with mode `0600`.
+random bearer token are stored in `~/.kvmuse/bridge.json` with mode `0600` on macOS.
+The Windows Viewer uses `%USERPROFILE%\.kvmuse\bridge.json` and restricts directory
+and file access to the current Windows user. Neither Viewer exposes the bridge
+outside the local machine. The Windows Viewer removes its own discovery file on exit.
 All endpoints require this token. Do not share the file.
 
 `kvm_status` reports `path: bridge` or `path: direct`. Direct access is used only

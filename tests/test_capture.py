@@ -42,6 +42,7 @@ def test_timeout(monkeypatch):
 
 
 def test_capture(monkeypatch):
+    monkeypatch.setattr(c.sys, 'platform', 'darwin')
     png = b'\x89PNG\r\n\x1a\n' + struct.pack('>I', 13) + b'IHDR' + struct.pack('>II', 640, 360)
     monkeypatch.setattr(c, 'discover_device', lambda: 1)
     monkeypatch.setattr(c, '_ffmpeg', lambda: 'ffmpeg')

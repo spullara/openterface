@@ -1,0 +1,6 @@
+[dshow @ 123] "Openterface" (video)
+[dshow @ 123]   Alternative name "@device_pnp_camera"
+[dshow @ 123] "Camera with spaces" (video)
+[dshow @ 123]   Alternative name "@device_other_camera"
+[dshow @ 123] "Openterface Audio" (audio)
+[dshow @ 123]   Alternative name "@device_audio"

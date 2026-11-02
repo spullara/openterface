@@ -2,6 +2,7 @@
 import argparse
 from pathlib import Path
 import time
+import tempfile
 
 from .capture import capture_frame, check_permission
 from .server import press_key, type_text
@@ -10,7 +11,7 @@ from .server import press_key, type_text
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--serial-only', action='store_true')
-    parser.add_argument('--output', type=Path, default=Path('/tmp/kvmuse-e2e'))
+    parser.add_argument('--output', type=Path, default=Path(tempfile.gettempdir()) / 'kvmuse-e2e')
     args = parser.parse_args()
     if not args.serial_only:
         check_permission()

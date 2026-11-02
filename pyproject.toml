@@ -7,6 +7,8 @@ dependencies = [
     "pillow>=13.0.0",
     "pyserial>=3.5",
 ]
+[project.optional-dependencies]
+viewer = ["PySide6>=6.8,<7", "pywin32>=308; sys_platform == 'win32'"]
 [dependency-groups]
 dev = ["pytest>=8"]
 [build-system]
@@ -15,3 +17,4 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 kvmuse-mcp = "kvmuse.server:main"
+kvmuse-viewer = "kvmuse.viewer:main"

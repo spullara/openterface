@@ -30,3 +30,6 @@ npm-debug.log*
 __pycache__/
 .venv/
 .pytest_cache/
+
+# Local verification artifacts
+.intent/artifacts/
