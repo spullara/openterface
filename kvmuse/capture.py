@@ -1,9 +1,10 @@
-"""Bounded FFmpeg camera capture on macOS and Windows."""
+"""Bounded FFmpeg camera capture on Linux, macOS and Windows."""
 import re
 import shutil
 import struct
 import subprocess
 import sys
+from pathlib import Path
 
 
 class CaptureError(RuntimeError):
@@ -22,10 +23,10 @@ def _run(command, timeout=15):
 
 
 def check_permission():
-    if sys.platform == 'win32':
+    if sys.platform in ('win32', 'linux'):
         return  # DirectShow reports access errors when opening the camera.
     if sys.platform != 'darwin':
-        raise CaptureError('Camera capture supports macOS and Windows hosts.')
+        raise CaptureError('Camera capture supports Linux, macOS and Windows hosts.')
     swift = shutil.which('swift')
     if not swift:
         raise CaptureError('Install Apple command line tools to check Camera permission (swift is missing).')
@@ -91,6 +92,8 @@ def _ffmpeg():
 
 def discover_device():
     check_permission()
+    if sys.platform == 'linux':
+        return select_device(linux_devices())
     if sys.platform == 'win32':
         result = _run([_ffmpeg(), '-hide_banner', '-list_devices', 'true', '-f', 'dshow', '-i', 'dummy'])
         return select_device(parse_dshow_devices(result.stderr.decode(errors='replace')))
@@ -100,16 +103,44 @@ def discover_device():
 
 def input_command(device, size='1920x1080'):
     command = [_ffmpeg(), '-hide_banner', '-loglevel', 'error', '-nostdin']
+    if sys.platform == 'linux':
+        return command + ['-f', 'v4l2', '-input_format', 'mjpeg', '-framerate', '30',
+                          '-video_size', size, '-i', str(device)]
     if sys.platform == 'win32':
         return command + ['-f', 'dshow', '-rtbufsize', '64M', '-framerate', '30',
                           '-video_size', size, '-i', f'video={device}']
     if sys.platform == 'darwin':
         return command + ['-f', 'avfoundation', '-pixel_format', 'uyvy422', '-framerate', '30',
                           '-video_size', size, '-i', f'{device}:none']
-    raise CaptureError('Camera capture supports macOS and Windows hosts.')
+    raise CaptureError('Camera capture supports Linux, macOS and Windows hosts.')
+
+
+def linux_devices():
+    """Enumerate V4L2 capture nodes, excluding metadata-only interfaces."""
+    import fcntl
+    devices = []
+    for entry in sorted(Path('/sys/class/video4linux').glob('video*')):
+        device = Path('/dev') / entry.name
+        try:
+            with device.open('rb', buffering=0) as stream:
+                capability = bytearray(104)
+                fcntl.ioctl(stream, 0x80685600, capability)  # VIDIOC_QUERYCAP
+            caps, device_caps = struct.unpack_from('=II', capability, 84)
+            if caps & 0x80000000:
+                caps = device_caps
+            if caps & 1:
+                devices.append((str(device), (entry / 'name').read_text().strip()))
+        except PermissionError as exc:
+            raise CaptureError(f'Cannot access {device}. Grant your user video device access and log in again.') from exc
+        except OSError:
+            continue
+    return devices
 
 
 def capture_error(detail):
+    if sys.platform == 'linux':
+        return CaptureError('Capture failed. Check /dev/video permissions, close other camera apps, '
+                            'and check the HDMI signal. ' + detail)
     if sys.platform == 'win32':
         return CaptureError('Capture failed. Check Windows Settings > Privacy & security > Camera '
                             '(allow desktop apps), close other camera apps, and check HDMI. ' + detail)

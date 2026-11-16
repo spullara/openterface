@@ -1,9 +1,33 @@
 # kvmuse
 
-Control an Openterface Mini-KVM through MCP over stdio on macOS or Windows 10/11.
+Control an Openterface Mini-KVM through MCP over stdio on Linux, macOS or Windows 10/11.
 The host requires Python 3.11+, uv, and FFmpeg. Python 3.13 is recommended for the
 Windows Viewer. macOS direct capture also requires Apple command line tools (Swift).
 The host OS is independent of the target: a Windows host can control a Mac or PC.
+
+## Linux setup
+
+Install Python 3.11 or later, uv, and FFmpeg with V4L2 support. On Debian or
+Ubuntu, install the runtime libraries with:
+
+```sh
+sudo apt install ffmpeg libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0
+uv sync --extra viewer
+uv run kvmuse-viewer
+```
+
+The Qt viewer provides live HDMI video, keyboard and mouse control, and the
+local MCP bridge. For video only, use `uv run kvmuse-viewer --no-connect`.
+For MCP without the viewer, run `uv run kvmuse-mcp`.
+
+Your user needs access to the capture camera (`/dev/video*`) and serial device
+(`/dev/ttyUSB*`). On Debian and Ubuntu, add your user to `video` and `dialout`
+with `sudo usermod -aG video,dialout "$USER"`, then log out and back in.
+Other distributions can use a different serial access group. Use `--port
+/dev/ttyUSB0` to select a serial device explicitly. Close other camera apps.
+Capture uses V4L2 MJPEG at 30 fps, trying 1920×1080 then 1280×720.
+The bridge discovery file is `~/.kvmuse/bridge.json`, readable only by your user.
+Desktop shortcuts can be intercepted by the window manager or compositor.
 
 ## Windows setup (PowerShell)
 

@@ -1,4 +1,4 @@
-"""Qt window for the Windows Viewer; worker threads never touch widgets."""
+"""Qt window for the Viewer; worker threads never touch widgets."""
 import time
 
 from PySide6.QtCore import QEvent, QObject, QRectF, Qt, QTimer, Signal
@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QHBoxLayout, QLabel,
 
 from .viewer_bridge import ViewerBridge
 from .viewer_camera import CameraStream
-from .viewer_core import InputState, SerialWorker, WAKE, windows_usage
+from .viewer_core import InputState, SerialWorker, WAKE, native_usage
 
 
 class Events(QObject):
@@ -270,7 +270,9 @@ class Window(QMainWindow):
             return True
         if not self.state.control:
             return False
-        if event.key() == Qt.Key.Key_F13:
+        usage = native_usage(event.nativeScanCode(), event.nativeVirtualKey(),
+                             QApplication.platformName())
+        if event.key() == Qt.Key.Key_F13 or usage == 104:
             if down and not event.isAutoRepeat() and self.state.f13():
                 self.release()
             return True
@@ -278,7 +280,6 @@ class Window(QMainWindow):
             return True
         if down:
             self.state.last_f13 = None
-        usage = windows_usage(event.nativeScanCode(), event.nativeVirtualKey())
         self.send(self.state.key(usage, down))
         return True
 

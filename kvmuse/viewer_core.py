@@ -1,4 +1,4 @@
-"""GUI-independent Windows Viewer input state and serial ownership."""
+"""GUI-independent Viewer input state and serial ownership."""
 from collections import deque
 from concurrent.futures import Future
 import threading
@@ -109,6 +109,41 @@ def windows_usage(scan, virtual_key):
     if virtual_key == 0x7c:
         return 104  # F13 is reserved by the Viewer.
     return SCANS.get(scan)
+
+
+# Linux evdev codes share the basic Set-1 positions through KEY_KPDOT,
+# but extended keys use their own codes (not Windows' E0 prefix).
+LINUX_SCANS = {code: usage for code, usage in SCANS.items() if code <= 83}
+LINUX_SCANS.update({
+    86: 100, 87: 68, 88: 69, 96: 88, 97: 228, 98: 84, 99: 70,
+    100: 230, 102: 74, 103: 82, 104: 75, 105: 80, 106: 79,
+    107: 77, 108: 81, 109: 78, 110: 73, 111: 76, 117: 103,
+    119: 72, 125: 227, 126: 231, 127: 101,
+})
+LINUX_SCANS.update({183 + i: 104 + i for i in range(12)})  # F13-F24.
+
+
+def linux_usage(scan):
+    """Map Qt X11/Wayland native scan codes to physical USB keyboard usages.
+
+    Both Qt xcb and wayland expose XKB keycodes, i.e. evdev codes plus 8.
+    In particular, Qt already adds 8 to the raw Wayland protocol keycode.
+    Assume the standard evdev XKB keycode set; never guess from key symbols
+    or text, which would change physical positions with the host layout.
+    Missing/unknown codes and consumer/media keys are ignored.
+    """
+    return LINUX_SCANS.get(scan - 8)
+
+
+def native_usage(scan, virtual_key, platform):
+    """Choose the scan-code convention using Qt's active platform plugin."""
+    if platform == 'xcb' or platform.startswith('wayland'):
+        return linux_usage(scan)
+    # Offscreen has no native keyboard; retain the synthetic Windows events
+    # used by the headless Viewer tests.
+    if platform in ('windows', 'offscreen'):
+        return windows_usage(scan, virtual_key)
+    return None
 
 
 class SerialWorker:

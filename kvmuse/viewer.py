@@ -1,15 +1,15 @@
-"""Windows KVM Viewer. Install with: uv sync --extra viewer."""
+"""Linux and Windows KVM Viewer. Install with: uv sync --extra viewer."""
 import argparse
 import sys
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--port', help='Explicit serial COM port, for example COM3')
+    parser.add_argument('--port', help='Serial port, for example /dev/ttyUSB0 or COM3')
     parser.add_argument('--no-connect', action='store_true', help='Preview video without opening serial or sending input')
     args = parser.parse_args()
-    if sys.platform != 'win32':
-        parser.exit(1, 'This Viewer runs on Windows. On macOS use the Swift Viewer in viewer/.\n')
+    if sys.platform not in ('win32', 'linux'):
+        parser.exit(1, 'This Viewer runs on Linux and Windows. On macOS use the Swift Viewer in viewer/.\n')
     try:
         from .viewer_ui import run
     except ImportError as exc:

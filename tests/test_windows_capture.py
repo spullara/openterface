@@ -56,7 +56,7 @@ def test_windows_access_error(monkeypatch):
 
 
 def test_unsupported_host(monkeypatch):
-    monkeypatch.setattr(c.sys, 'platform', 'linux')
+    monkeypatch.setattr(c.sys, 'platform', 'freebsd')
     with pytest.raises(c.CaptureError, match='macOS and Windows'):
         c.discover_device()
 
